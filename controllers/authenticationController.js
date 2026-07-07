@@ -1,72 +1,68 @@
 const User = require('../models/user');
-const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const config = require('../config/index');
 const generateToken = require('../utils/generateToken');
-const healthCheck = (req, res) => {
-    try {
-        res.status(200).json({
-            message: "Health check successful"
-        });
-    } catch (error) {
-        res.status(500).json({ message: 'Internal server error' });
-    }
-}
+const asyncHandler = require('../utils/asyncHandler');
+const AppError = require('../utils/appError');
+const { sendSuccess } = require('../utils/apiResponse');
 
-const registerUser = async(req, res) => {
-    try {
-        console.log("Register user called");
-        console.log(req.body);
-        const {name, email, password,role,phone} = req.body;
+const formatAuthUser = (user) => ({
+  id: user._id,
+  name: user.name,
+  email: user.email,
+  phone: user.phone,
+  role: user.role,
+});
 
-        const userExist = await User.findOne({email});
-        console.log(userExist);
-        if( userExist) {
-            return res.status(400).json({message: "User already exists"});
-        }
-        const hashedPassword = await bcrypt.hash(password, 12);
-        console.log(hashedPassword);
+const healthCheck = asyncHandler(async (req, res) => {
+  return sendSuccess(res, 200, 'Health check successful');
+});
 
-        const user = new User({
-            name,
-            email,
-            password: hashedPassword,
-            role,
-            phone
-        });
-        await user.save();
-        res.status(201).json({message: "User registered successfully"});
+const registerUser = asyncHandler(async (req, res) => {
+  const { name, email, password, phone } = req.body;
 
-    } catch (error) {
-        res.status(500).json({ message: 'Internal server error' });
-    }
-}
+  const userExist = await User.findOne({ email });
+  if (userExist) {
+    throw new AppError('User already exists', 409);
+  }
 
-const loginUser = async(req, res) => {
-    try {
-        console.log("Login user called");
-        const {email, password} = req.body;
+  const hashedPassword = await bcrypt.hash(password, 12);
+  const user = new User({
+    name,
+    email,
+    password: hashedPassword,
+    phone,
+  });
 
-        const user = await User.findOne({email});
-        if( !user){
-            return res.status(404).json({message: "User not found"});
-        }
-        const isMatch = await bcrypt.compare(password, user.password);
-        if(!isMatch){
-            return res.status(400).json({message: "Invalid credentials"});
-        }
+  await user.save();
 
-        const token = await generateToken({id: user._id, email: user.email, role: user.role});
-        console.log("Generated token:", token);
-        return res.status(200).json({
-                message: "Login successful",
-                token
-            });
-    } catch (error) {
-        console.log(error)
-        res.status(500).json({ message: 'Internal server error' });
-    }
-}
+  return sendSuccess(res, 201, 'User registered successfully', {
+    user: formatAuthUser(user),
+  });
+});
+
+const loginUser = asyncHandler(async (req, res) => {
+  const { email, password } = req.body;
+
+  const user = await User.findOne({ email });
+  if (!user) {
+    throw new AppError('Invalid email or password', 401);
+  }
+
+  const isMatch = await bcrypt.compare(password, user.password);
+  if (!isMatch) {
+    throw new AppError('Invalid email or password', 401);
+  }
+
+  const token = generateToken({ id: user._id, email: user.email, role: user.role });
+
+  return sendSuccess(res, 200, 'Login successful', {
+    token,
+    tokenType: 'Bearer',
+    expiresIn: config.JWT_EXPIRES_IN,
+    user: formatAuthUser(user),
+  });
+});
 
 module.exports = {
   healthCheck,

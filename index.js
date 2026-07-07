@@ -1,20 +1,42 @@
+require('dotenv').config();
 const express = require('express');
-const app = express();
-const userProfileRoutes = require('./routes/userProfileRoutes');
+const cors = require('cors');
+const cookieParser = require('cookie-parser');
 const connectDB = require('./config/dbConnection');
+
+const userProfileRoutes = require('./routes/userProfileRoutes');
 const authenticationRoutes = require('./routes/authenticationRoutes');
 const productRoutes = require('./routes/productRoutes');
 const orderRoutes = require('./routes/orderRoutes');
-require('dotenv').config();
+const recommendationRoutes = require('./routes/recommendationRoutes');
+const { notFoundHandler, errorHandler } = require('./middleware/errorHandler');
 
+const app = express();
 const PORT = process.env.PORT || 5000;
 
-app.use(express.json());
+// Connect to database
 connectDB();
-app.use('/api/user',userProfileRoutes);
+
+// Global Middleware
+app.use(cors({
+  origin: process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : true,
+  credentials: true,
+}));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
+
+// Route Mounts
+app.use('/api/user', userProfileRoutes);
 app.use('/api/auth', authenticationRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/orders', orderRoutes);
-app.listen( PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-})
+app.use('/api/recommendations', recommendationRoutes);
+
+// central error handlers
+app.use(notFoundHandler);
+app.use(errorHandler);
+
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});
