@@ -44,6 +44,9 @@ const parseHuggingFaceResponse = (response, availableProducts) => {
     availableProducts.map((product) => [product.id, product])
   );
 
+  const seenIds = new Set();
+  const seenNames = new Set();
+
   return (parsed.recommendations || [])
     .map((recommendation) => {
       const product = availableById.get(String(recommendation.productId));
@@ -51,6 +54,14 @@ const parseHuggingFaceResponse = (response, availableProducts) => {
       if (!product) {
         return null;
       }
+
+      const normalizedName = product.name.trim().toLowerCase();
+      if (seenIds.has(product.id) || seenNames.has(normalizedName)) {
+        return null;
+      }
+
+      seenIds.add(product.id);
+      seenNames.add(normalizedName);
 
       return {
         product,
@@ -69,18 +80,38 @@ const getFallbackRecommendations = (purchasedProducts, availableProducts) => {
     purchasedProducts.map((product) => product.category).filter(Boolean)
   );
   const purchasedIds = new Set(purchasedProducts.map((product) => product.id));
-
-  const categoryMatches = availableProducts.filter(
-    (product) =>
-      purchasedCategories.has(product.category) && !purchasedIds.has(product.id)
+  const purchasedNames = new Set(
+    purchasedProducts.map((product) => product.name.trim().toLowerCase())
   );
 
-  const fallbackProducts = (categoryMatches.length > 0
-    ? categoryMatches
-    : availableProducts.filter((product) => !purchasedIds.has(product.id))
-  )
-    .sort((a, b) => b.rating - a.rating || a.price - b.price)
-    .slice(0, 5);
+  const candidateProducts = availableProducts.filter(
+    (product) =>
+      !purchasedIds.has(product.id) && !purchasedNames.has(product.name.trim().toLowerCase())
+  );
+
+  const categoryMatches = candidateProducts.filter(
+    (product) => purchasedCategories.has(product.category)
+  );
+
+  const sourceProducts = categoryMatches.length > 0 ? categoryMatches : candidateProducts;
+
+  // Sort candidates so we keep the highest-rated & lowest-priced versions during de-duplication
+  const sortedProducts = [...sourceProducts].sort(
+    (a, b) => b.rating - a.rating || a.price - b.price
+  );
+
+  const uniqueProducts = [];
+  const seenNames = new Set();
+
+  for (const product of sortedProducts) {
+    const normalizedName = product.name.trim().toLowerCase();
+    if (!seenNames.has(normalizedName)) {
+      seenNames.add(normalizedName);
+      uniqueProducts.push(product);
+    }
+  }
+
+  const fallbackProducts = uniqueProducts.slice(0, 5);
 
   return fallbackProducts.map((product) => ({
     product,
