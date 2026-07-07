@@ -1,5 +1,9 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
+
+// Override MONGO_URI for testing to avoid IP whitelist restrictions in external Atlas cluster
+process.env.MONGO_URI = "mongodb://127.0.0.1:27017/e-commerce-test";
+
 const mongoose = require("mongoose");
 const express = require("express");
 const cors = require("cors");
