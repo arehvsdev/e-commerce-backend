@@ -1,8 +1,5 @@
 const bcrypt = require("bcryptjs");
 const User = require("../models/user");
-const { sendSuccess } = require("../utils/apiResponse");
-const asyncHandler = require("../utils/asyncHandler");
-const AppError = require("../utils/appError");
 
 const allowedUserFields = ["name", "email", "phone", "role"];
 
@@ -15,120 +12,151 @@ const formatUser = (user) => ({
 });
 
 const pickUserFields = (body) => {
-  return allowedUserFields.reduce((updates, field) => {
+  const updates = {};
+
+  allowedUserFields.forEach((field) => {
     if (body[field] !== undefined) {
       updates[field] = body[field];
     }
+  });
 
-    return updates;
-  }, {});
+  return updates;
 };
 
-const healthCheck = asyncHandler(async (req, res) => {
-  return sendSuccess(res, 200, "Health check successful");
-});
+const healthCheck = async (req, res) => {
+  res.status(200).json({ success: true, data: { message: "Health check successful" } });
+};
 
-const createUser = asyncHandler(async (req, res) => {
-  const existingUser = await User.findOne({ email: req.body.email });
+const createUser = async (req, res) => {
+  try {
+    const existingUser = await User.findOne({ email: req.body.email });
 
-  if (existingUser) {
-    throw new AppError("User already exists", 409);
+    if (existingUser) {
+      return res.status(400).json({ success: false, message: "User already exists" });
+    }
+
+    const hashedPassword = await bcrypt.hash(req.body.password, 12);
+    const user = await User.create({
+      ...pickUserFields(req.body),
+      password: hashedPassword,
+    });
+
+    return res.status(201).json({
+      success: true,
+      data: { user: formatUser(user) },
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Server error" });
   }
+};
 
-  const hashedPassword = await bcrypt.hash(req.body.password, 12);
-  const user = await User.create({
-    ...pickUserFields(req.body),
-    password: hashedPassword,
-  });
+const getUsers = async (req, res) => {
+  try {
+    const users = await User.find().select("-password");
 
-  return sendSuccess(res, 201, "User created successfully", {
-    user: formatUser(user),
-  });
-});
-
-const getUsers = asyncHandler(async (req, res) => {
-  const users = await User.find().select("-password");
-
-  return sendSuccess(res, 200, "Users fetched successfully", { users });
-});
-
-const getUserById = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.params.id).select("-password");
-
-  if (!user) {
-    throw new AppError("User not found", 404);
+    return res.status(200).json({ success: true, data: { users } });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Server error" });
   }
+};
 
-  return sendSuccess(res, 200, "User fetched successfully", { user });
-});
+const getUserById = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id).select("-password");
 
-const updateUser = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
 
-  if (!user) {
-    throw new AppError("User not found", 404);
+    return res.status(200).json({ success: true, data: { user } });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Server error" });
   }
+};
 
-  Object.assign(user, pickUserFields(req.body));
-  await user.save();
+const updateUser = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
 
-  return sendSuccess(res, 200, "User updated successfully", {
-    user: formatUser(user),
-  });
-});
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
 
-const deleteUser = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.params.id);
+    Object.assign(user, pickUserFields(req.body));
+    await user.save();
 
-  if (!user) {
-    throw new AppError("User not found", 404);
+    return res.status(200).json({ success: true, data: { user: formatUser(user) } });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Server error" });
   }
+};
 
-  await user.deleteOne();
+const deleteUser = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
 
-  return sendSuccess(res, 200, "User deleted successfully");
-});
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
 
-const getProfile = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.user.id).select("-password");
+    await user.deleteOne();
 
-  if (!user) {
-    throw new AppError("User not found", 404);
+    return res.status(200).json({ success: true, data: { message: "User deleted successfully" } });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Server error" });
   }
+};
 
-  return sendSuccess(res, 200, "Profile fetched successfully", { user });
-});
+const getProfile = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select("-password");
 
-const updateProfile = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
 
-  if (!user) {
-    throw new AppError("User not found", 404);
+    return res.status(200).json({ success: true, data: { user } });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Server error" });
   }
+};
 
-  const updates = pickUserFields(req.body);
-  delete updates.email;
-  delete updates.role;
+const updateProfile = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
 
-  Object.assign(user, updates);
-  await user.save();
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
 
-  return sendSuccess(res, 200, "Profile updated successfully", {
-    user: formatUser(user),
-  });
-});
+    const updates = pickUserFields(req.body);
+    delete updates.email;
+    delete updates.role;
 
-const deleteProfile = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.user.id);
+    Object.assign(user, updates);
+    await user.save();
 
-  if (!user) {
-    throw new AppError("User not found", 404);
+    return res.status(200).json({ success: true, data: { user: formatUser(user) } });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Server error" });
   }
+};
 
-  await user.deleteOne();
+const deleteProfile = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
 
-  return sendSuccess(res, 200, "Profile deleted successfully");
-});
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    await user.deleteOne();
+
+    return res.status(200).json({ success: true, data: { message: "Profile deleted successfully" } });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
 
 module.exports = {
   healthCheck,

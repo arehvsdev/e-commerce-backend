@@ -6,13 +6,11 @@ const orderSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
-      index: true,
     },
     product: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Product",
       required: true,
-      index: true,
     },
     quantity: {
       type: Number,
@@ -28,7 +26,6 @@ const orderSchema = new mongoose.Schema(
       type: String,
       enum: ["pending", "shipped", "delivered"],
       default: "pending",
-      index: true,
     },
     paymentMethod: {
       type: String,

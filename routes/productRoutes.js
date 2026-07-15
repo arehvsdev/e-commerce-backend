@@ -5,7 +5,8 @@ const { mongoIdParam } = require('../validators/commonValidator');
 const {
   createProductValidator,
   productQueryValidator,
-  updateProductValidator
+  putProductValidator,
+  patchProductValidator,
 } = require('../validators/productValidator');
 const {
   createProduct,
@@ -19,8 +20,8 @@ const {
 router.post('/', authMiddleware, roleMiddleware('admin'), createProductValidator, createProduct);
 router.get('/', productQueryValidator, getAllProducts);
 router.get("/:id", mongoIdParam("id"), getProductById);
-router.put("/:id", authMiddleware, roleMiddleware('admin'), mongoIdParam("id"), updateProductValidator, updateProduct);
-router.patch("/:id", authMiddleware, roleMiddleware('admin'), mongoIdParam("id"), updateProductValidator, patchProduct);
+router.put("/:id", authMiddleware, roleMiddleware('admin'), mongoIdParam("id"), putProductValidator, updateProduct);
+router.patch("/:id", authMiddleware, roleMiddleware('admin'), mongoIdParam("id"), patchProductValidator, patchProduct);
 router.delete("/:id", authMiddleware, roleMiddleware('admin'), mongoIdParam("id"), deleteProduct);
 
 
