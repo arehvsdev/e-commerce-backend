@@ -6,7 +6,7 @@ const {
   getProductRecommendations,
 } = require("../controllers/recommendationController");
 
-router.get("/analytics/recommendations/:productId", authMiddleware, mongoIdParam("productId"), getProductRecommendations);
-router.get("/:userId", authMiddleware, mongoIdParam("userId"), getUserRecommendations);
+router.get("/product/:productId", authMiddleware, mongoIdParam("productId"), getProductRecommendations);
+router.get("/user/:userId", authMiddleware, mongoIdParam("userId"), getUserRecommendations);
 
 module.exports = router;

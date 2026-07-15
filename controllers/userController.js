@@ -1,7 +1,7 @@
 const bcrypt = require("bcryptjs");
 const User = require("../models/user");
 
-const allowedUserFields = ["name", "email", "phone", "role"];
+const allowedUserFields = ["name", "email", "phone"];
 
 const formatUser = (user) => ({
   id: user._id,

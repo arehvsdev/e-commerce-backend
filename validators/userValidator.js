@@ -179,7 +179,7 @@ const adminUpdateUserValidator = (req, res, next) => {
   }
 
   const errors = [];
-  rejectUnknownBodyFields(req, ["name", "email", "phone", "role"], errors);
+  rejectUnknownBodyFields(req, ["name", "email", "phone"], errors);
 
   const { name, email, phone, role, password } = req.body;
 
@@ -187,10 +187,13 @@ const adminUpdateUserValidator = (req, res, next) => {
     errors.push({ field: "password", message: "Password cannot be updated here" });
   }
 
+  if (role !== undefined) {
+    errors.push({ field: "role", message: "Role cannot be updated here" });
+  }
+
   if (name !== undefined) validateName(name, false, errors);
   if (email !== undefined) validateEmail(email, false, errors);
   if (phone !== undefined) validatePhone(phone, false, errors);
-  if (role !== undefined) validateRole(role, errors);
 
   if (errors.length > 0) {
     return res.status(400).json({
