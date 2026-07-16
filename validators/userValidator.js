@@ -1,4 +1,15 @@
-const userFields = ["name", "email", "password", "phone", "role"];
+const userFields = ["name", "email", "password", "phone", "role", "firstName", "lastName"];
+const profileAllowedFields = [
+  "name",
+  "phone",
+  "firstName",
+  "lastName",
+  "bio",
+  "country",
+  "cityState",
+  "postalCode",
+  "taxId"
+];
 
 const rejectUnknownBodyFields = (req, allowed, errors) => {
   for (const key of Object.keys(req.body || {})) {
@@ -69,9 +80,14 @@ const createUserValidator = (req, res, next) => {
   const errors = [];
   rejectUnknownBodyFields(req, userFields, errors);
 
-  const { name, email, password, phone, role } = req.body || {};
+  const { name, email, password, phone, role, firstName, lastName } = req.body || {};
 
-  validateName(name, true, errors);
+  if (firstName || lastName) {
+    if (!firstName || firstName.trim() === "") errors.push({ field: "firstName", message: "First name is required" });
+    if (!lastName || lastName.trim() === "") errors.push({ field: "lastName", message: "Last name is required" });
+  } else {
+    validateName(name, true, errors);
+  }
   validateEmail(email, true, errors);
   validatePassword(password, true, errors);
   validatePhone(phone, true, errors);
@@ -88,6 +104,8 @@ const createUserValidator = (req, res, next) => {
   // Sanitization
   if (req.body) {
     if (name) req.body.name = name.trim();
+    if (firstName) req.body.firstName = firstName.trim();
+    if (lastName) req.body.lastName = lastName.trim();
     if (email) req.body.email = email.toLowerCase().trim();
     if (phone) req.body.phone = phone.trim();
   }
@@ -105,16 +123,26 @@ const putProfileValidator = (req, res, next) => {
   }
 
   const errors = [];
-  rejectUnknownBodyFields(req, ["name", "phone"], errors);
+  rejectUnknownBodyFields(req, profileAllowedFields, errors);
 
-  const { name, phone, email, password, role } = req.body;
+  const { name, phone, email, password, role, firstName, lastName } = req.body;
 
   if (email !== undefined) errors.push({ field: "email", message: "Email cannot be updated here" });
   if (password !== undefined) errors.push({ field: "password", message: "Password cannot be updated here" });
   if (role !== undefined) errors.push({ field: "role", message: "Role cannot be updated here" });
 
-  validateName(name, true, errors);
-  validatePhone(phone, true, errors);
+  if (firstName || lastName) {
+    if (firstName !== undefined && (typeof firstName !== "string" || firstName.trim() === "")) {
+      errors.push({ field: "firstName", message: "First name cannot be empty" });
+    }
+    if (lastName !== undefined && (typeof lastName !== "string" || lastName.trim() === "")) {
+      errors.push({ field: "lastName", message: "Last name cannot be empty" });
+    }
+  } else if (name !== undefined) {
+    validateName(name, true, errors);
+  }
+  
+  if (phone !== undefined) validatePhone(phone, true, errors);
 
   if (errors.length > 0) {
     return res.status(400).json({
@@ -126,6 +154,8 @@ const putProfileValidator = (req, res, next) => {
 
   // Sanitization
   if (name) req.body.name = name.trim();
+  if (firstName) req.body.firstName = firstName.trim();
+  if (lastName) req.body.lastName = lastName.trim();
   if (phone) req.body.phone = phone.trim();
 
   next();
@@ -143,14 +173,20 @@ const patchProfileValidator = (req, res, next) => {
   }
 
   const errors = [];
-  rejectUnknownBodyFields(req, ["name", "phone"], errors);
+  rejectUnknownBodyFields(req, profileAllowedFields, errors);
 
-  const { name, phone, email, password, role } = req.body;
+  const { name, phone, email, password, role, firstName, lastName } = req.body;
 
   if (email !== undefined) errors.push({ field: "email", message: "Email cannot be updated here" });
   if (password !== undefined) errors.push({ field: "password", message: "Password cannot be updated here" });
   if (role !== undefined) errors.push({ field: "role", message: "Role cannot be updated here" });
 
+  if (firstName !== undefined && (typeof firstName !== "string" || firstName.trim() === "")) {
+    errors.push({ field: "firstName", message: "First name cannot be empty" });
+  }
+  if (lastName !== undefined && (typeof lastName !== "string" || lastName.trim() === "")) {
+    errors.push({ field: "lastName", message: "Last name cannot be empty" });
+  }
   if (name !== undefined) validateName(name, false, errors);
   if (phone !== undefined) validatePhone(phone, false, errors);
 
@@ -164,6 +200,8 @@ const patchProfileValidator = (req, res, next) => {
 
   // Sanitization
   if (name) req.body.name = name.trim();
+  if (firstName) req.body.firstName = firstName.trim();
+  if (lastName) req.body.lastName = lastName.trim();
   if (phone) req.body.phone = phone.trim();
 
   next();

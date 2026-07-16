@@ -1,6 +1,6 @@
 const registerValidator = (req, res, next) => {
   const errors = [];
-  const allowed = ["name", "email", "password", "phone"];
+  const allowed = ["name", "email", "password", "phone", "firstName", "lastName"];
   
   // Reject unknown fields
   for (const key of Object.keys(req.body || {})) {
@@ -9,13 +9,23 @@ const registerValidator = (req, res, next) => {
     }
   }
 
-  const { name, email, password, phone, role } = req.body || {};
+  const { name, email, password, phone, role, firstName, lastName } = req.body || {};
 
-  // name
-  if (name === undefined || name === null || name === "") {
-    errors.push({ field: "name", message: "Name is required" });
-  } else if (name.trim().length < 2 || name.trim().length > 60) {
-    errors.push({ field: "name", message: "Name must be between 2 and 60 characters" });
+  // Validate firstName and lastName if present, otherwise fallback to validating name
+  if (firstName || lastName) {
+    if (firstName === undefined || firstName === null || firstName.trim() === "") {
+      errors.push({ field: "firstName", message: "First name is required" });
+    }
+    if (lastName === undefined || lastName === null || lastName.trim() === "") {
+      errors.push({ field: "lastName", message: "Last name is required" });
+    }
+  } else {
+    // name
+    if (name === undefined || name === null || name === "") {
+      errors.push({ field: "name", message: "Name is required" });
+    } else if (name.trim().length < 2 || name.trim().length > 60) {
+      errors.push({ field: "name", message: "Name must be between 2 and 60 characters" });
+    }
   }
 
   // email
@@ -64,6 +74,8 @@ const registerValidator = (req, res, next) => {
   // Trim and normalize values
   if (req.body) {
     if (name) req.body.name = name.trim();
+    if (firstName) req.body.firstName = firstName.trim();
+    if (lastName) req.body.lastName = lastName.trim();
     if (email) req.body.email = email.toLowerCase().trim();
     if (phone) req.body.phone = phone.trim();
   }

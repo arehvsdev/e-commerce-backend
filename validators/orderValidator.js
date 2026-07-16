@@ -1,4 +1,4 @@
-const orderFields = ["productId", "quantity", "paymentMethod", "status"];
+const orderFields = ["productId", "quantity", "paymentMethod", "status", "shippingAddress"];
 const paymentMethods = ["credit_card", "paypal", "cash_on_delivery"];
 const orderStatuses = ["pending", "shipped", "delivered"];
 
@@ -16,7 +16,7 @@ const checkBodyNotEmpty = (req) => {
 
 const createOrderValidator = (req, res, next) => {
   const errors = [];
-  rejectUnknownBodyFields(req, ["productId", "quantity", "paymentMethod", "status"], errors);
+  rejectUnknownBodyFields(req, ["productId", "quantity", "paymentMethod", "status", "shippingAddress"], errors);
 
   const { productId, quantity, paymentMethod, status } = req.body || {};
 

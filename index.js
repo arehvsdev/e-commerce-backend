@@ -9,6 +9,8 @@ const authenticationRoutes = require('./routes/authenticationRoutes');
 const productRoutes = require('./routes/productRoutes');
 const orderRoutes = require('./routes/orderRoutes');
 const recommendationRoutes = require('./routes/recommendationRoutes');
+const categoryRoutes = require('./routes/categoryRoutes');
+
 const { notFoundHandler, errorHandler } = require('./middleware/errorHandler');
 
 const app = express();
@@ -37,6 +39,7 @@ app.use('/api/auth', authenticationRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/recommendations', recommendationRoutes);
+app.use('/api/categories', categoryRoutes);
 
 // central error handlers
 app.use(notFoundHandler);

@@ -1,11 +1,29 @@
 const bcrypt = require("bcryptjs");
 const User = require("../models/user");
 
-const allowedUserFields = ["name", "email", "phone"];
+const allowedUserFields = [
+  "name",
+  "email",
+  "phone",
+  "firstName",
+  "lastName",
+  "bio",
+  "country",
+  "cityState",
+  "postalCode",
+  "taxId"
+];
 
 const formatUser = (user) => ({
   id: user._id,
-  name: user.name,
+  name: user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+  firstName: user.firstName,
+  lastName: user.lastName,
+  bio: user.bio,
+  country: user.country,
+  cityState: user.cityState,
+  postalCode: user.postalCode,
+  taxId: user.taxId,
   email: user.email,
   phone: user.phone,
   role: user.role,
@@ -99,6 +117,17 @@ const deleteUser = async (req, res) => {
       return res.status(404).json({ success: false, message: "User not found" });
     }
 
+    // Security check: If deleting an admin, ensure there is at least one other admin remaining.
+    if (user.role === 'admin') {
+      const adminCount = await User.countDocuments({ role: 'admin' });
+      if (adminCount <= 1) {
+        return res.status(400).json({
+          success: false,
+          message: "Security constraint: Cannot delete the only admin user in the system.",
+        });
+      }
+    }
+
     await user.deleteOne();
 
     return res.status(200).json({ success: true, data: { message: "User deleted successfully" } });
@@ -115,7 +144,7 @@ const getProfile = async (req, res) => {
       return res.status(404).json({ success: false, message: "User not found" });
     }
 
-    return res.status(200).json({ success: true, data: { user } });
+    return res.status(200).json({ success: true, data: { user: formatUser(user) } });
   } catch (error) {
     return res.status(500).json({ success: false, message: "Server error" });
   }
@@ -132,6 +161,13 @@ const updateProfile = async (req, res) => {
     const updates = pickUserFields(req.body);
     delete updates.email;
     delete updates.role;
+
+    // Dynamically build full name from first/last name changes
+    if (updates.firstName !== undefined || updates.lastName !== undefined) {
+      const currentFirstName = updates.firstName !== undefined ? updates.firstName : (user.firstName || "");
+      const currentLastName = updates.lastName !== undefined ? updates.lastName : (user.lastName || "");
+      updates.name = `${currentFirstName} ${currentLastName}`.trim();
+    }
 
     Object.assign(user, updates);
     await user.save();
@@ -158,6 +194,43 @@ const deleteProfile = async (req, res) => {
   }
 };
 
+const changePassword = async (req, res) => {
+  try {
+    const { oldPassword, newPassword } = req.body;
+
+    if (!oldPassword || !newPassword) {
+      return res.status(400).json({ success: false, message: "Both old and new passwords are required" });
+    }
+
+    if (newPassword.length < 8) {
+      return res.status(400).json({ success: false, message: "New password must be at least 8 characters long" });
+    }
+    if (!/[A-Za-z]/.test(newPassword)) {
+      return res.status(400).json({ success: false, message: "New password must contain at least one letter" });
+    }
+    if (!/\d/.test(newPassword)) {
+      return res.status(400).json({ success: false, message: "New password must contain at least one number" });
+    }
+
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    const isMatch = await bcrypt.compare(oldPassword, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ success: false, message: "Incorrect old password" });
+    }
+
+    user.password = await bcrypt.hash(newPassword, 12);
+    await user.save();
+
+    return res.status(200).json({ success: true, message: "Password updated successfully" });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
 module.exports = {
   healthCheck,
   createUser,
@@ -168,4 +241,5 @@ module.exports = {
   getProfile,
   updateProfile,
   deleteProfile,
+  changePassword,
 };

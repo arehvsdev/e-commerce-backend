@@ -6,6 +6,7 @@ const productFields = [
   "stock",
   "image",
   "rating",
+  "sku",
 ];
 
 const checkBodyNotEmpty = (req) => {
@@ -95,7 +96,7 @@ const createProductValidator = (req, res, next) => {
   const errors = [];
   rejectUnknownBodyFields(req, productFields, errors);
 
-  const { name, description, category, price, stock, image, rating } = req.body || {};
+  const { name, description, category, price, stock, image, rating, sku } = req.body || {};
 
   validateName(name, true, errors);
   validateDescription(description, true, errors);
@@ -122,6 +123,7 @@ const createProductValidator = (req, res, next) => {
     if (stock !== undefined) req.body.stock = parseInt(stock, 10);
     if (image) req.body.image = image.trim();
     if (rating !== undefined && rating !== null) req.body.rating = parseFloat(rating);
+    if (sku) req.body.sku = sku.trim();
   }
 
   next();
@@ -139,7 +141,7 @@ const putProductValidator = (req, res, next) => {
   const errors = [];
   rejectUnknownBodyFields(req, productFields, errors);
 
-  const { name, description, category, price, stock, image, rating } = req.body;
+  const { name, description, category, price, stock, image, rating, sku } = req.body;
 
   validateName(name, true, errors);
   validateDescription(description, true, errors);
@@ -165,6 +167,7 @@ const putProductValidator = (req, res, next) => {
   req.body.stock = parseInt(stock, 10);
   if (image) req.body.image = image.trim();
   if (rating !== undefined && rating !== null) req.body.rating = parseFloat(rating);
+  if (sku) req.body.sku = sku.trim();
 
   next();
 };
@@ -181,7 +184,7 @@ const patchProductValidator = (req, res, next) => {
   const errors = [];
   rejectUnknownBodyFields(req, productFields, errors);
 
-  const { name, description, category, price, stock, image, rating } = req.body;
+  const { name, description, category, price, stock, image, rating, sku } = req.body;
 
   if (name !== undefined) validateName(name, false, errors);
   if (description !== undefined) validateDescription(description, false, errors);
@@ -207,6 +210,7 @@ const patchProductValidator = (req, res, next) => {
   if (stock !== undefined) req.body.stock = parseInt(stock, 10);
   if (image) req.body.image = image.trim();
   if (rating !== undefined && rating !== null) req.body.rating = parseFloat(rating);
+  if (sku !== undefined) req.body.sku = sku.trim();
 
   next();
 };

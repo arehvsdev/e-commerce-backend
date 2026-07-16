@@ -1,4 +1,6 @@
+const mongoose = require("mongoose");
 const Product = require("../models/product");
+const Category = require("../models/category");
 
 const allowedProductFields = [
   "name",
@@ -8,8 +10,20 @@ const allowedProductFields = [
   "stock",
   "image",
   "rating",
+  "sku",
 ];
 const allowedSortFields = ["price", "rating", "createdAt"];
+
+const formatProductObj = (product) => {
+  if (!product) return null;
+  return {
+    ...product,
+    id: product._id,
+    category: product.category && typeof product.category === 'object'
+      ? product.category.name
+      : product.category,
+  };
+};
 
 const pickProductFields = (body) => {
   const updates = {};
@@ -25,14 +39,25 @@ const pickProductFields = (body) => {
 
 const createProduct = async (req, res) => {
   try {
+    const fields = pickProductFields(req.body);
+    if (fields.category) {
+      const catDoc = await Category.findOne({ name: fields.category.trim() });
+      if (catDoc) {
+        fields.category = catDoc._id;
+      } else {
+        return res.status(400).json({ success: false, message: `Category "${fields.category}" does not exist. Please create it first.` });
+      }
+    }
+
     const product = await Product.create({
-      ...pickProductFields(req.body),
+      ...fields,
       createdBy: req.user.id,
     });
 
+    const populated = await Product.findById(product._id).populate("category").lean();
     return res.status(201).json({
       success: true,
-      data: { product },
+      data: { product: formatProductObj(populated) },
     });
   } catch (error) {
     return res.status(500).json({ success: false, message: "Server error" });
@@ -65,7 +90,12 @@ const getAllProducts = async (req, res) => {
     }
 
     if (category) {
-      filter.category = category.trim();
+      const catDoc = await Category.findOne({ name: category.trim() });
+      if (catDoc) {
+        filter.category = catDoc._id;
+      } else {
+        filter.category = new mongoose.Types.ObjectId();
+      }
     }
 
     if (minPrice !== undefined || maxPrice !== undefined) {
@@ -97,7 +127,7 @@ const getAllProducts = async (req, res) => {
 
     const [products, totalProducts] = await Promise.all([
       Product.find(filter)
-        .select("name description category price stock image rating createdBy createdAt")
+        .populate("category")
         .sort(sortOption)
         .skip(skip)
         .limit(pageSize)
@@ -106,6 +136,7 @@ const getAllProducts = async (req, res) => {
     ]);
 
     const totalPages = Math.ceil(totalProducts / pageSize) || 1;
+    const formattedProducts = products.map(formatProductObj);
 
     return res.status(200).json({
       success: true,
@@ -113,7 +144,7 @@ const getAllProducts = async (req, res) => {
         currentPage,
         totalPages,
         totalProducts,
-        products,
+        products: formattedProducts,
       },
     });
   } catch (error) {
@@ -123,13 +154,13 @@ const getAllProducts = async (req, res) => {
 
 const getProductById = async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id).lean();
+    const product = await Product.findById(req.params.id).populate("category").lean();
 
     if (!product) {
       return res.status(404).json({ success: false, message: "Product not found" });
     }
 
-    return res.status(200).json({ success: true, data: { product } });
+    return res.status(200).json({ success: true, data: { product: formatProductObj(product) } });
   } catch (error) {
     return res.status(500).json({ success: false, message: "Server error" });
   }
@@ -143,10 +174,21 @@ const updateProduct = async (req, res) => {
       return res.status(404).json({ success: false, message: "Product not found" });
     }
 
-    Object.assign(product, pickProductFields(req.body));
+    const fields = pickProductFields(req.body);
+    if (fields.category) {
+      const catDoc = await Category.findOne({ name: fields.category.trim() });
+      if (catDoc) {
+        fields.category = catDoc._id;
+      } else {
+        return res.status(400).json({ success: false, message: `Category "${fields.category}" does not exist.` });
+      }
+    }
+
+    Object.assign(product, fields);
     await product.save();
 
-    return res.status(200).json({ success: true, data: { product } });
+    const populated = await Product.findById(product._id).populate("category").lean();
+    return res.status(200).json({ success: true, data: { product: formatProductObj(populated) } });
   } catch (error) {
     return res.status(500).json({ success: false, message: "Server error" });
   }
@@ -170,6 +212,57 @@ const deleteProduct = async (req, res) => {
 
 const patchProduct = updateProduct;
 
+const bulkCreateProducts = async (req, res) => {
+  try {
+    const productsArray = req.body;
+    if (!Array.isArray(productsArray)) {
+      return res.status(400).json({ success: false, message: "Invalid payload: expected an array of products" });
+    }
+
+    const createdProducts = [];
+    for (const item of productsArray) {
+      const imagePath = item.image_url || item.image;
+      if (!item.name || !item.description || !item.category || item.price === undefined || item.stock === undefined || !imagePath) {
+        return res.status(400).json({
+          success: false,
+          message: `Product validation failed for item "${item.name || "Unnamed"}". Name, description, category, price, stock, and image are required.`,
+        });
+      }
+
+      const catDoc = await Category.findOne({ name: item.category.trim() });
+      if (!catDoc) {
+        return res.status(400).json({
+          success: false,
+          message: `Category "${item.category}" does not exist. Please create it first.`,
+        });
+      }
+
+      const product = await Product.create({
+        name: item.name.trim(),
+        description: item.description.trim(),
+        category: catDoc._id,
+        price: parseFloat(item.price),
+        stock: parseInt(item.stock, 10),
+        image: imagePath.trim(),
+        rating: item.rating ? parseFloat(item.rating) : 4.0,
+        sku: item.sku ? item.sku.trim() : "",
+        createdBy: req.user.id,
+      });
+
+      const populated = await Product.findById(product._id).populate("category").lean();
+      createdProducts.push(formatProductObj(populated));
+    }
+
+    return res.status(201).json({
+      success: true,
+      message: `Successfully imported ${createdProducts.length} products`,
+      data: { products: createdProducts },
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Server error during bulk insert", error: error.message });
+  }
+};
+
 module.exports = {
   createProduct,
   updateProduct,
@@ -177,4 +270,5 @@ module.exports = {
   patchProduct,
   getAllProducts,
   getProductById,
+  bulkCreateProducts,
 };

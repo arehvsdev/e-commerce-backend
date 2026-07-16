@@ -1,11 +1,13 @@
 const User = require('../models/user');
 const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
 const config = require('../config/index');
+const generateToken = require('../utils/generateToken');
 
 const formatAuthUser = (user) => ({
   id: user._id,
-  name: user.name,
+  name: user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+  firstName: user.firstName,
+  lastName: user.lastName,
   email: user.email,
   phone: user.phone,
   role: user.role,
@@ -17,11 +19,7 @@ const healthCheck = async (req, res) => {
 
 const registerUser = async (req, res) => {
   try {
-    const { name, email, password, phone } = req.body;
-
-    if (!name || !email || !password) {
-      return res.status(400).json({ success: false, message: 'Name, email and password are required' });
-    }
+    const { name, email, password, phone, firstName, lastName } = req.body;
 
     const userExist = await User.findOne({ email });
     if (userExist) {
@@ -29,11 +27,18 @@ const registerUser = async (req, res) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 12);
+    
+    // Construct name from first and last name if provided
+    const resolvedName = name || `${firstName || ''} ${lastName || ''}`.trim();
+
     const user = await User.create({
-      name,
+      name: resolvedName,
+      firstName: firstName || '',
+      lastName: lastName || '',
       email,
       password: hashedPassword,
       phone,
+      role: 'user',
     });
 
     return res.status(201).json({
@@ -63,11 +68,7 @@ const loginUser = async (req, res) => {
       return res.status(401).json({ success: false, message: 'Invalid email or password' });
     }
 
-    const token = jwt.sign(
-      { id: user._id, email: user.email, role: user.role },
-      config.JWT_SECRET,
-      { expiresIn: config.JWT_EXPIRES_IN }
-    );
+    const token = generateToken({ id: user._id, email: user.email, role: user.role });
 
     return res.status(200).json({
       success: true,

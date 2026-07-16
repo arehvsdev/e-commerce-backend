@@ -5,7 +5,7 @@ const populateProduct = "name price";
 
 const placeOrder = async (req, res) => {
   try {
-    const { productId, quantity, paymentMethod } = req.body;
+    const { productId, quantity, paymentMethod, shippingAddress } = req.body;
 
     const product = await Product.findOneAndUpdate(
       { _id: productId, stock: { $gte: quantity } },
@@ -27,6 +27,7 @@ const placeOrder = async (req, res) => {
       quantity,
       totalAmount: product.price * quantity,
       paymentMethod,
+      shippingAddress: shippingAddress || "",
     });
 
     await order.populate("product", populateProduct);

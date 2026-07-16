@@ -12,9 +12,9 @@ const productSchema = new mongoose.Schema(
       trim: true,
     },
     category: {
-      type: String,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Category",
       required: true,
-      trim: true,
     },
     price: {
       type: Number,
@@ -32,6 +32,11 @@ const productSchema = new mongoose.Schema(
     rating: {
       type: Number,
       default: 0,
+    },
+    sku: {
+      type: String,
+      trim: true,
+      default: "",
     },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,

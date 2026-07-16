@@ -4,7 +4,12 @@ const roleMiddleware = (...roles) => {
   return (req, res, next) => {
     const userRole = req.user && req.user.role && req.user.role.toLowerCase();
 
-    if (!userRole || !allowedRoles.includes(userRole)) {
+    // Admin users automatically inherit access to all user-gated functionality
+    const effectiveAllowedRoles = allowedRoles.includes('user')
+      ? [...allowedRoles, 'admin']
+      : allowedRoles;
+
+    if (!userRole || !effectiveAllowedRoles.includes(userRole)) {
       return res.status(403).json({
         success: false,
         message: 'Access denied. You do not have permission to perform this action.',

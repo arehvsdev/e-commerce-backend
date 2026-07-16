@@ -4,14 +4,50 @@ const userSchema = new mongoose.Schema(
     {
         name: {
             type: String,
-            required: true,
+            required: false,
+            trim: true
+        },
+        firstName: {
+            type: String,
+            default: "",
+            trim: true
+        },
+        lastName: {
+            type: String,
+            default: "",
+            trim: true
+        },
+        bio: {
+            type: String,
+            default: "",
+            trim: true
+        },
+        country: {
+            type: String,
+            default: "",
+            trim: true
+        },
+        cityState: {
+            type: String,
+            default: "",
+            trim: true
+        },
+        postalCode: {
+            type: String,
+            default: "",
+            trim: true
+        },
+        taxId: {
+            type: String,
+            default: "",
             trim: true
         },
         email: {
             type: String,
             required: true,
             lowercase: true,
-            trim: true
+            trim: true,
+            unique: true
         },
         password: {
             type: String,
