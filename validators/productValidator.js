@@ -92,6 +92,16 @@ const validateRating = (rating, errors) => {
   }
 };
 
+const validateSku = (sku, errors) => {
+  if (sku !== undefined && sku !== null) {
+    if (typeof sku !== "string" || sku.trim() === "") {
+      errors.push({ field: "sku", message: "SKU must be between 2 and 50 characters" });
+    } else if (sku.trim().length < 2 || sku.trim().length > 50) {
+      errors.push({ field: "sku", message: "SKU must be between 2 and 50 characters" });
+    }
+  }
+};
+
 const createProductValidator = (req, res, next) => {
   const errors = [];
   rejectUnknownBodyFields(req, productFields, errors);
@@ -105,6 +115,7 @@ const createProductValidator = (req, res, next) => {
   validateStock(stock, true, errors);
   validateImage(image, true, errors);
   validateRating(rating, errors);
+  validateSku(sku, errors);
 
   if (errors.length > 0) {
     return res.status(400).json({
@@ -150,6 +161,7 @@ const putProductValidator = (req, res, next) => {
   validateStock(stock, true, errors);
   validateImage(image, true, errors);
   validateRating(rating, errors);
+  validateSku(sku, errors);
 
   if (errors.length > 0) {
     return res.status(400).json({
@@ -193,6 +205,7 @@ const patchProductValidator = (req, res, next) => {
   if (stock !== undefined) validateStock(stock, false, errors);
   if (image !== undefined) validateImage(image, false, errors);
   if (rating !== undefined) validateRating(rating, errors);
+  validateSku(sku, errors);
 
   if (errors.length > 0) {
     return res.status(400).json({

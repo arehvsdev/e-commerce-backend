@@ -1,5 +1,7 @@
 const bcrypt = require("bcryptjs");
 const User = require("../models/user");
+const Address = require("../models/address");
+const ApiLog = require("../models/apiLog");
 
 const allowedUserFields = [
   "name",
@@ -7,11 +9,7 @@ const allowedUserFields = [
   "phone",
   "firstName",
   "lastName",
-  "bio",
-  "country",
-  "cityState",
-  "postalCode",
-  "taxId"
+  "bio"
 ];
 
 const formatUser = (user) => ({
@@ -19,14 +17,10 @@ const formatUser = (user) => ({
   name: user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim(),
   firstName: user.firstName,
   lastName: user.lastName,
-  bio: user.bio,
-  country: user.country,
-  cityState: user.cityState,
-  postalCode: user.postalCode,
-  taxId: user.taxId,
   email: user.email,
   phone: user.phone,
   role: user.role,
+  bio: user.bio || "",
 });
 
 const pickUserFields = (body) => {
@@ -53,10 +47,9 @@ const createUser = async (req, res) => {
       return res.status(400).json({ success: false, message: "User already exists" });
     }
 
-    const hashedPassword = await bcrypt.hash(req.body.password, 12);
     const user = await User.create({
       ...pickUserFields(req.body),
-      password: hashedPassword,
+      password: req.body.password, // raw password, hashed in pre-save hook
     });
 
     return res.status(201).json({
@@ -222,10 +215,111 @@ const changePassword = async (req, res) => {
       return res.status(400).json({ success: false, message: "Incorrect old password" });
     }
 
-    user.password = await bcrypt.hash(newPassword, 12);
+    user.password = newPassword; // raw password, hashed in pre-save hook
     await user.save();
 
     return res.status(200).json({ success: true, message: "Password updated successfully" });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+const getProfileAddress = async (req, res) => {
+  try {
+    const address = await Address.findOne({ user: req.user.id }).populate('country');
+    return res.status(200).json({
+      success: true,
+      data: { address: address || null },
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+const createProfileAddress = async (req, res) => {
+  try {
+    const existingAddress = await Address.findOne({ user: req.user.id });
+    if (existingAddress) {
+      return res.status(400).json({ success: false, message: "Address already exists for this user" });
+    }
+
+    let address = await Address.create({
+      user: req.user.id,
+      country: req.body.country,
+      cityState: req.body.cityState,
+      postalCode: req.body.postalCode,
+    });
+
+    address = await address.populate('country');
+
+    return res.status(201).json({
+      success: true,
+      data: { address },
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+const updateProfileAddress = async (req, res) => {
+  try {
+    let address = await Address.findOne({ user: req.user.id });
+    if (!address) {
+      return res.status(404).json({ success: false, message: "Address not found" });
+    }
+
+    address.country = req.body.country;
+    address.cityState = req.body.cityState;
+    address.postalCode = req.body.postalCode;
+
+    await address.save();
+    address = await address.populate('country');
+
+    return res.status(200).json({
+      success: true,
+      data: { address },
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+const getApiLogs = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const query = {};
+    if (req.query.method) {
+      query.method = req.query.method;
+    }
+    if (req.query.status) {
+      query.statusCode = parseInt(req.query.status);
+    }
+    if (req.query.search) {
+      query.path = { $regex: req.query.search, $options: "i" };
+    }
+
+    const logs = await ApiLog.find(query)
+      .populate("userId", "firstName lastName email role")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+
+    const total = await ApiLog.countDocuments(query);
+    const totalPages = Math.ceil(total / limit);
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        logs,
+        page,
+        totalPages,
+        total,
+      },
+    });
   } catch (error) {
     return res.status(500).json({ success: false, message: "Server error" });
   }
@@ -242,4 +336,8 @@ module.exports = {
   updateProfile,
   deleteProfile,
   changePassword,
+  getProfileAddress,
+  createProfileAddress,
+  updateProfileAddress,
+  getApiLogs,
 };

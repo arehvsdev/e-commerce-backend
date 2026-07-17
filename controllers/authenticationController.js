@@ -19,24 +19,21 @@ const healthCheck = async (req, res) => {
 
 const registerUser = async (req, res) => {
   try {
-    const { name, email, password, phone, firstName, lastName } = req.body;
+    const { email, password, phone, firstName, lastName } = req.body;
 
     const userExist = await User.findOne({ email });
     if (userExist) {
       return res.status(400).json({ success: false, message: 'User already exists' });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 12);
-    
-    // Construct name from first and last name if provided
-    const resolvedName = name || `${firstName || ''} ${lastName || ''}`.trim();
+    const resolvedName = `${firstName || ''} ${lastName || ''}`.trim();
 
     const user = await User.create({
       name: resolvedName,
       firstName: firstName || '',
       lastName: lastName || '',
       email,
-      password: hashedPassword,
+      password, // raw password, hashed in model pre-save hook
       phone,
       role: 'user',
     });
@@ -84,8 +81,53 @@ const loginUser = async (req, res) => {
   }
 };
 
+const checkEmail = async (req, res) => {
+  try {
+    console.log("Check email call")
+    const { email } = req.body;
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found with this email' });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Email verified successfully',
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+const resetPassword = async (req, res) => {
+  try {
+    console.log("Reset password call");
+    console.log(req.body);
+    const { email, newPassword } = req.body;
+    
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found with this email' });
+    }
+
+    user.password = newPassword; // Raw password, hashed in model pre-save hook
+    user.resetPasswordToken = null;
+    user.resetPasswordExpire = null;
+
+    await user.save({ validateBeforeSave: false });
+
+    return res.status(200).json({ success: true, message: 'Password has been reset successfully' });
+  } catch (error) {
+    console.log('Error in reset password');
+    console.log(error);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
 module.exports = {
   healthCheck,
   registerUser,
   loginUser,
+  checkEmail,
+  resetPassword,
 };

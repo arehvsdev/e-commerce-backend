@@ -2,13 +2,17 @@ const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/authMiddleware');
 const roleMiddleware = require('../middleware/roleMiddleware');
+
 const {
     createUserValidator,
     updateProfileValidator,
     putProfileValidator,
     patchProfileValidator,
     adminUpdateUserValidator,
+    changePasswordValidator,
+    addressValidator,
 } = require('../validators/userValidator');
+
 const {
     healthCheck,
     createUser,
@@ -20,16 +24,26 @@ const {
     updateProfile,
     deleteProfile,
     changePassword,
+    getProfileAddress,
+    createProfileAddress,
+    updateProfileAddress,
+    getApiLogs,
 } = require('../controllers/userController');
 
 router.get("/healthcheck", healthCheck);
 router.post("/", authMiddleware, roleMiddleware("admin"), createUserValidator, createUser);
 router.get("/", authMiddleware, roleMiddleware("admin"), getUsers);
+router.get("/logs", authMiddleware, roleMiddleware("admin"), getApiLogs);
 router.get("/profile", authMiddleware, getProfile);
 router.put("/profile", authMiddleware, putProfileValidator, updateProfile);
 router.patch("/profile", authMiddleware, patchProfileValidator, updateProfile);
-router.patch("/profile/password", authMiddleware, changePassword);
+router.patch("/profile/password", authMiddleware, changePasswordValidator, changePassword);
 router.delete("/profile", authMiddleware, deleteProfile);
+
+router.get("/profile/address", authMiddleware, getProfileAddress);
+router.post("/profile/address", authMiddleware, addressValidator, createProfileAddress);
+router.put("/profile/address", authMiddleware, addressValidator, updateProfileAddress);
+
 router.get("/:id", authMiddleware, roleMiddleware("admin"), getUserById);
 router.put("/:id", authMiddleware, roleMiddleware("admin"), adminUpdateUserValidator, updateUser);
 router.patch("/:id", authMiddleware, roleMiddleware("admin"), adminUpdateUserValidator, updateUser);

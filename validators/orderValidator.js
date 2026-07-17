@@ -18,7 +18,7 @@ const createOrderValidator = (req, res, next) => {
   const errors = [];
   rejectUnknownBodyFields(req, ["productId", "quantity", "paymentMethod", "status", "shippingAddress"], errors);
 
-  const { productId, quantity, paymentMethod, status } = req.body || {};
+  const { productId, quantity, paymentMethod, status, shippingAddress } = req.body || {};
 
   if (status !== undefined) {
     errors.push({ field: "status", message: "Status cannot be set when placing an order" });
@@ -48,6 +48,12 @@ const createOrderValidator = (req, res, next) => {
     errors.push({ field: "paymentMethod", message: "Invalid payment method" });
   }
 
+  if (shippingAddress === undefined || shippingAddress === null || shippingAddress.trim() === "") {
+    errors.push({ field: "shippingAddress", message: "Shipping address is required" });
+  } else if (typeof shippingAddress !== "string" || shippingAddress.trim().length < 10 || shippingAddress.trim().length > 300) {
+    errors.push({ field: "shippingAddress", message: "Shipping address must be between 10 and 300 characters" });
+  }
+
   if (errors.length > 0) {
     return res.status(400).json({
       success: false,
@@ -57,8 +63,9 @@ const createOrderValidator = (req, res, next) => {
   }
 
   // Sanitization
-  if (req.body && quantity !== undefined) {
-    req.body.quantity = parseInt(quantity, 10);
+  if (req.body) {
+    if (quantity !== undefined) req.body.quantity = parseInt(quantity, 10);
+    if (shippingAddress) req.body.shippingAddress = shippingAddress.trim();
   }
 
   next();
@@ -76,7 +83,7 @@ const updateOrderValidator = (req, res, next) => {
   const errors = [];
   rejectUnknownBodyFields(req, orderFields, errors);
 
-  const { productId, quantity, paymentMethod, status } = req.body;
+  const { productId, quantity, paymentMethod, status, shippingAddress } = req.body;
 
   if (productId !== undefined) {
     errors.push({ field: "productId", message: "Product cannot be changed" });
@@ -101,6 +108,12 @@ const updateOrderValidator = (req, res, next) => {
     }
   }
 
+  if (shippingAddress !== undefined) {
+    if (typeof shippingAddress !== "string" || shippingAddress.trim().length < 10 || shippingAddress.trim().length > 300) {
+      errors.push({ field: "shippingAddress", message: "Shipping address must be between 10 and 300 characters" });
+    }
+  }
+
   if (errors.length > 0) {
     return res.status(400).json({
       success: false,
@@ -110,8 +123,9 @@ const updateOrderValidator = (req, res, next) => {
   }
 
   // Sanitization
-  if (quantity !== undefined) {
-    req.body.quantity = parseInt(quantity, 10);
+  if (req.body) {
+    if (quantity !== undefined) req.body.quantity = parseInt(quantity, 10);
+    if (shippingAddress) req.body.shippingAddress = shippingAddress.trim();
   }
 
   next();
