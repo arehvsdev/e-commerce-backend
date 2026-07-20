@@ -18,23 +18,26 @@ const { notFoundHandler, errorHandler } = require('./middleware/errorHandler');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const rawClientUrl = process.env.CLIENT_URL || '';
-const allowedOrigins = rawClientUrl
-  .split(',')
-  .map((u) => u.trim())
-  .filter(Boolean)
-  .map((u) => (u.endsWith('/') ? u.slice(0, -1) : u));
+
+const allowedOrigins = [
+    process.env.CLIENT_URL
+].filter(Boolean);
 
 const corsOptions = {
-  origin: (origin, callback) => {
-    // allow requests with no origin like mobile apps or curl
-    if (!origin) return callback(null, true);
-    const normalized = origin.endsWith('/') ? origin.slice(0, -1) : origin;
-    if (allowedOrigins.includes(normalized)) return callback(null, true);
-    return callback(new Error('CORS policy: Origin not allowed'), false);
-  },
-  credentials: true,
+    origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true);
+            return;
+        }
+        callback(null, false);
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
 };
+
+app.use(cors(corsOptions));
+app.options(/(.*)/, cors(corsOptions));
 
 // Connect to database
 connectDB().then(() => {
@@ -42,7 +45,6 @@ connectDB().then(() => {
 });
 
 // Global Middleware
-app.use(cors(corsOptions));
 app.use((req, res, next) => {
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   next();
