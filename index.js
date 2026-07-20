@@ -18,8 +18,21 @@ const { notFoundHandler, errorHandler } = require('./middleware/errorHandler');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const rawClientUrl = process.env.CLIENT_URL || '';
+const allowedOrigins = rawClientUrl
+  .split(',')
+  .map((u) => u.trim())
+  .filter(Boolean)
+  .map((u) => (u.endsWith('/') ? u.slice(0, -1) : u));
+
 const corsOptions = {
-  origin: process.env.CLIENT_URL || false,
+  origin: (origin, callback) => {
+    // allow requests with no origin like mobile apps or curl
+    if (!origin) return callback(null, true);
+    const normalized = origin.endsWith('/') ? origin.slice(0, -1) : origin;
+    if (allowedOrigins.includes(normalized)) return callback(null, true);
+    return callback(new Error('CORS policy: Origin not allowed'), false);
+  },
   credentials: true,
 };
 
@@ -54,4 +67,9 @@ app.use(errorHandler);
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
+  if (allowedOrigins.length) {
+    console.log('CORS allowed origins:', allowedOrigins.join(', '));
+  } else {
+    console.log('No CLIENT_URL configured; CORS requests from browsers may be blocked.');
+  }
 });
